@@ -32,7 +32,6 @@ def send_button_click():
 
 # 現在の取得を取得def
 def now():
-    global time_format
     time_data = datetime.datetime.now().time()
     time_now = time_data.strftime(time_format)
     return time_now
@@ -46,7 +45,12 @@ root.geometry("600x220")
 # テキストフレーム・テキストボックス作成
 text_frame = tk.Frame(root, width=500, height=100)
 text_frame.pack()
-entry = ScrolledText(text_frame, font=("Meiryo UI", 12), height=7, width=55)
+entry = ScrolledText(
+    text_frame,
+    font=("Meiryo UI", 12),
+    height=7,
+    width=55,
+)
 entry.pack()
 
 # 送信・文字数カウントラベル作成
@@ -69,6 +73,6 @@ send_button = tk.Button(
     anchor="center",
     command=send_button_click,
 )
-send_button.grid(row=0, column=1)
 
+send_button.grid(row=0, column=1)
 root.mainloop()
