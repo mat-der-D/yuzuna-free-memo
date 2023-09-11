@@ -1,21 +1,20 @@
 import tkinter as tk
 import tkinter as t
 from tkinter.scrolledtext import ScrolledText
-import pyperclip
 import os
 import datetime
 
+# def用変数定義
 word_count = 0
-file_name = 0
 daily_dir = "i:\\Knowledge_BackUP\\Daily"
 today_data = datetime.date.today()
 date_format = "%Y-%m-%d"
+time_format = "%H:%M"
 daily_today = today_data.strftime(date_format)
-
 file_path = f"{os.path.join(daily_dir,daily_today)}.md"
-print(file_path)
 
 
+# 文字数カウントdef
 def entry_count():
     global word_count
     word_count = entry.get(0.0, t.END)
@@ -23,11 +22,19 @@ def entry_count():
     root.after(1000, entry_count)
 
 
+# ボタンクリックdef
 def send_button_click():
-    daily_file = open(file_path, mode="w")
-    daily_file.write(entry.get(0.0, t.END))
+    daily_file = open(file_path, mode="a", encoding="UTF-8")
+    daily_file.write(f"**{now()}**\n{entry.get(0.0, t.END)}\n")
     daily_file.close()
-    pyperclip.copy(entry.get(0.0, t.END))
+
+
+# 現在の取得を取得def
+def now():
+    global time_format
+    time_data = datetime.datetime.now().time()
+    time_now = time_data.strftime(time_format)
+    return time_now
 
 
 # メインウィンドウ作成
