@@ -20,14 +20,14 @@ root.geometry("600x220")
 # テキストフレーム・テキストボックス作成
 text_frame = tk.Frame(root, width=500, height=100)
 text_frame.pack()
-entry = ScrolledText(text_frame, font=("メイリオ", 14), height=5, width=40)
+entry = ScrolledText(text_frame, font=("Meiryo UI", 12), height=7, width=55)
 entry.pack()
 
 # 送信・文字数カウントラベル作成
 frame = tk.Frame(root, width=500, height=30)
 frame.pack(padx=20, pady=10)
 
-count_label = tk.Label(frame, text=0, width="10", font=("BIZ UDゴシック", 14))
+count_label = tk.Label(frame, text=0, width="10", font=("Meiryo UI", 14))
 entry_count()
 count_label.grid(row=0, column=0)
 
@@ -39,7 +39,7 @@ send_button = tk.Button(
     fg="#ffffff",
     bg="#1E88E5",
     relief=tk.FLAT,
-    font=("BIZ UDゴシック", 14),
+    font=("Meiryo UI", 14),
     anchor="center",
 )
 send_button.grid(row=0, column=1)
