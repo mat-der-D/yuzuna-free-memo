@@ -2,8 +2,18 @@ import tkinter as tk
 import tkinter as t
 from tkinter.scrolledtext import ScrolledText
 import pyperclip
+import os
+import datetime
 
 word_count = 0
+file_name = 0
+daily_dir = "i:\\Knowledge_BackUP\\Daily"
+today_data = datetime.date.today()
+date_format = "%Y-%m-%d"
+daily_today = today_data.strftime(date_format)
+
+file_path = f"{os.path.join(daily_dir,daily_today)}.md"
+print(file_path)
 
 
 def entry_count():
@@ -14,6 +24,9 @@ def entry_count():
 
 
 def send_button_click():
+    daily_file = open(file_path, mode="w")
+    daily_file.write(entry.get(0.0, t.END))
+    daily_file.close()
     pyperclip.copy(entry.get(0.0, t.END))
 
 
