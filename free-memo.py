@@ -26,6 +26,7 @@ def entry_count():
 def send_button_click():
     daily_file = open(file_path, mode="a", encoding="UTF-8")
     daily_file.write(f"**{now()}**\n{entry.get(0.0, t.END)}\n")
+    entry.delete(0.0, t.END)
     daily_file.close()
 
 
