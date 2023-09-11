@@ -1,6 +1,7 @@
 import tkinter as tk
 import tkinter as t
 from tkinter.scrolledtext import ScrolledText
+import pyperclip
 
 word_count = 0
 
@@ -10,6 +11,10 @@ def entry_count():
     word_count = entry.get(0.0, t.END)
     count_label["text"] = len(word_count) - 1
     root.after(1000, entry_count)
+
+
+def send_button_click():
+    pyperclip.copy(entry.get(0.0, t.END))
 
 
 # メインウィンドウ作成
@@ -41,6 +46,7 @@ send_button = tk.Button(
     relief=tk.FLAT,
     font=("Meiryo UI", 14),
     anchor="center",
+    command=send_button_click,
 )
 send_button.grid(row=0, column=1)
 
