@@ -29,49 +29,30 @@ class MainModel:
 class MainViewModel:
     def __init__(self, model: MainModel):
         self.model = model
-        self.count = tk.StringVar(value="0")
-        self.text = tk.StringVar(value="\n")
-        self.text.trace_add("write", lambda *_: self.sync_text_count())
+        self.count = tk.StringVar(value="0")  # bind to Counter
+        self.text = tk.StringVar(value="\n")  # bind to TextField
+        self.text.trace_add("write", self.sync_text_count)
 
-    def sync_text_count(self):
+    def sync_text_count(self, *_):
         self.count.set(str(len(self.text.get()) - 1))
 
     def send_button_click(self):
         self.model.save_text(self.text.get())
-
-    def text_change_handler(self, text: str):
-        self.text.set(text)
 
 
 # ======================================================================================
 #  View
 # ======================================================================================
 class SendButton(tk.Button):
-    def __init__(self, master=None, *, view_model):
-        config = dict(
-            text="送信",
-            width="35",
-            pady=5,
-            fg="#ffffff",
-            bg="#1E88E5",
-            relief=tk.FLAT,
-            font=("Meiryo UI", 14),
-            anchor="center",
-        )
-        super().__init__(master, **config)
+    def __init__(self, master=None, *, view_model: MainViewModel, **kwargs):
+        super().__init__(master, **kwargs)
         self.vm = view_model
         self["command"] = self.vm.send_button_click
 
 
 class Counter(tk.Label):
-    def __init__(self, master=None, *, view_model):
-        config = dict(
-            text=0,
-            width="10",
-            font=("Meiryo UI", 14),
-        )
-        super().__init__(master, **config)
-
+    def __init__(self, master=None, *, view_model: MainViewModel, **kwargs):
+        super().__init__(master, **kwargs)
         self.vm = view_model
         self["textvariable"] = self.vm.count
 
@@ -79,14 +60,8 @@ class Counter(tk.Label):
 class TextField(ScrolledText):
     text_change_notification_period_ms = 10
 
-    def __init__(self, master=None, *, view_model):
-        config = dict(
-            font=("Meiryo UI", 12),
-            height=7,
-            width=55,
-        )
-        super().__init__(master, **config)
-
+    def __init__(self, master=None, *, view_model: MainViewModel, **kwargs):
+        super().__init__(master, **kwargs)
         self.vm = view_model
         self._text_cache = self.get(0.0, tk.END)
         self.master.after(self.text_change_notification_period_ms, self.notify_text_change)
@@ -94,7 +69,7 @@ class TextField(ScrolledText):
     def notify_text_change(self):
         text = self.get(0.0, tk.END)
         if text != self._text_cache:
-            self.vm.text_change_handler(text)
+            self.vm.text.set(text)  # bind text to self.vm.text
         self._text_cache = text
         self.master.after(self.text_change_notification_period_ms, self.notify_text_change)
 
@@ -104,14 +79,35 @@ class MainWindow(tk.Frame):
         super().__init__(master)
         self.vm = view_model
 
-        text_frame = tk.Frame(master, width=500, height=100)
-        TextField(text_frame, view_model=self.vm).pack()
-        text_frame.pack()
+        self.columnconfigure(index=0, weight=1)
+        self.columnconfigure(index=1, weight=10)
 
-        counter_button_frame = tk.Frame(master, width=500, height=30)
-        Counter(counter_button_frame, view_model=self.vm).grid(column=0, row=0)
-        SendButton(counter_button_frame, view_model=self.vm).grid(column=1, row=0)
-        counter_button_frame.pack(padx=20, pady=10)
+        TextField(
+            self,
+            view_model=self.vm,
+            height=7,
+            width=55,
+            font=("Meiryo UI", 12),
+        ).grid(column=0, row=0, columnspan=2)
+
+        Counter(
+            self,
+            view_model=self.vm,
+            width=10,
+            font=("Meiryo UI", 14),
+        ).grid(column=0, row=1)
+
+        SendButton(
+            self,
+            view_model=self.vm,
+            width=10,
+            pady=5,
+            text="送信",
+            font=("Meiryo UI", 14),
+            fg="#ffffff",
+            bg="#1E88E5",
+            relief=tk.FLAT,
+        ).grid(column=1, row=1)
 
 
 # ======================================================================================
@@ -120,15 +116,11 @@ class MainWindow(tk.Frame):
 class FreeMemoApp:
     def __init__(self, save_dir: str, filename_format: str):
         self.root = tk.Tk()
-        self._setup_window(self.root)
+        self.root.title("フリーメモ")
+
         model = MainModel(save_dir, filename_format)
         vm = MainViewModel(model)
-        MainWindow(view_model=vm).pack()
-
-    @staticmethod
-    def _setup_window(root):
-        root.title("フリーメモ")
-        root.geometry("600x200")
+        MainWindow(view_model=vm).pack(expand=True, fill=tk.BOTH)
 
     def launch(self):
         self.root.mainloop()
