@@ -3,95 +3,143 @@ from tkinter.scrolledtext import ScrolledText
 import os
 import datetime
 
-def create_text_frame(master):
-    text_frame = tk.Frame(master, width=500, height=100)
-    text_field = ScrolledText(text_frame, font=("Meiryo UI", 12), height=7, width=55)
-    text_field.pack()
-    return text_frame, text_field
 
+# ======================================================================================
+#  Model
+# ======================================================================================
+class MainModel:
+    def __init__(self, save_dir: str, filename_format: str):
+        self.save_dir = save_dir
+        self.filename_format = filename_format  # e.g. "{:%Y-%m-%d}.md"
 
-def create_counter(master):
-    counter = tk.Label(master, text=0, width="10", font=("Meiryo UI", 14))
-    return counter
-
-
-def create_send_button(master, command):
-    send_button = tk.Button(
-        master,
-        text="送信",
-        width="35",
-        pady=5,
-        fg="#ffffff",
-        bg="#1E88E5",
-        relief=tk.FLAT,
-        font=("Meiryo UI", 14),
-        anchor="center",
-        command=command,
-    )
-    return send_button
-
-
-def save_and_clear_text(target_path: str, text_widget: ScrolledText, timestamp_format: str):
-    template = "**{:" + timestamp_format + "}**\n{}\n"
-
-    with open(target_path, mode="a", encoding="UTF-8") as f:
+    def save_text(self, raw_text: str):
         timestamp = datetime.datetime.now()
-        body = text_widget.get(0.0, tk.END)
-        f.write(template.format(timestamp, body))
+        save_path = os.path.join(self.save_dir, self.filename_format.format(timestamp))
+        with open(save_path, "a") as f:
+            f.write(self.format_log_message(raw_text, timestamp))
 
-    text_widget.delete(0.0, tk.END)
-
-
-def create_main_window(master, file_path, timestamp_format):
-    main_window = tk.Frame(master)
-
-    text_frame, text_field = create_text_frame(main_window)
-    text_frame.pack()
-
-    counter_button_frame = tk.Frame(main_window, width=500, height=30)
-    counter_button_frame.pack(padx=20, pady=10)
-    counter = create_counter(counter_button_frame)
-    counter.grid(row=0, column=0)
-
-    def send_button_click():
-        # 変数のスコープを犯す(引数でもらっていない変数を処理に使う)という「変な」ことをするので、
-        # それ以外の変わったことを極力同じところでしないことで認知負荷を下げる
-        return save_and_clear_text(file_path, text_field, timestamp_format)
-
-    send_button = create_send_button(counter_button_frame, send_button_click)
-    send_button.grid(row=0, column=1)
-
-    def launch_auto_sync(root, *, period_ms=1000):  # 普通はクラスで実現する
-        def one_step():
-            text = text_field.get(0.0, tk.END)
-            counter["text"] = len(text) - 1
-            root.after(period_ms, one_step)
-
-        one_step()
-
-    return main_window, launch_auto_sync
+    @staticmethod
+    def format_log_message(raw_text: str, timestamp: datetime) -> str:
+        return f"**{timestamp:%H:%M:%S}**\n{raw_text}\n"
 
 
-def launch_app(save_file_path: str, timestamp_format: str, *, sync_period_ms=1000):
-    root = tk.Tk()
-    root.title("フリーメモ")
-    root.geometry("600x220")
+# ======================================================================================
+#  View
+# ======================================================================================
+class MainViewModel:
+    def __init__(self, model: MainModel):
+        self.model = model
+        self.count = tk.StringVar(value="0")
+        self.text = tk.StringVar(value="\n")
+        self.text.trace_add("write", lambda *_: self.sync_text_count())
 
-    main_window, launch_auto_sync = create_main_window(root, save_file_path, timestamp_format)
-    main_window.pack()
+    def sync_text_count(self):
+        self.count.set(str(len(self.text.get()) - 1))
 
-    launch_auto_sync(root, period_ms=sync_period_ms)
-    root.mainloop()
+    def send_button_click(self):
+        self.model.save_text(self.text.get())
+
+    def text_change_handler(self, text: str):
+        self.text.set(text)
+
+
+# ======================================================================================
+#  View
+# ======================================================================================
+class SendButton(tk.Button):
+    def __init__(self, master=None, *, view_model):
+        config = dict(
+            text="送信",
+            width="35",
+            pady=5,
+            fg="#ffffff",
+            bg="#1E88E5",
+            relief=tk.FLAT,
+            font=("Meiryo UI", 14),
+            anchor="center",
+        )
+        super().__init__(master, **config)
+        self.vm = view_model
+        self["command"] = self.vm.send_button_click
+
+
+class Counter(tk.Label):
+    def __init__(self, master=None, *, view_model):
+        config = dict(
+            text=0,
+            width="10",
+            font=("Meiryo UI", 14),
+        )
+        super().__init__(master, **config)
+
+        self.vm = view_model
+        self["textvariable"] = self.vm.count
+
+
+class TextField(ScrolledText):
+    text_change_notification_period_ms = 10
+
+    def __init__(self, master=None, *, view_model):
+        config = dict(
+            font=("Meiryo UI", 12),
+            height=7,
+            width=55,
+        )
+        super().__init__(master, **config)
+
+        self.vm = view_model
+        self._text_cache = self.get(0.0, tk.END)
+        self.master.after(self.text_change_notification_period_ms, self.notify_text_change)
+
+    def notify_text_change(self):
+        text = self.get(0.0, tk.END)
+        if text != self._text_cache:
+            self.vm.text_change_handler(text)
+        self._text_cache = text
+        self.master.after(self.text_change_notification_period_ms, self.notify_text_change)
+
+
+class MainWindow(tk.Frame):
+    def __init__(self, master=None, *, view_model: MainViewModel):
+        super().__init__(master)
+        self.vm = view_model
+
+        text_frame = tk.Frame(master, width=500, height=100)
+        TextField(text_frame, view_model=self.vm).pack()
+        text_frame.pack()
+
+        counter_button_frame = tk.Frame(master, width=500, height=30)
+        Counter(counter_button_frame, view_model=self.vm).grid(column=0, row=0)
+        SendButton(counter_button_frame, view_model=self.vm).grid(column=1, row=0)
+        counter_button_frame.pack(padx=20, pady=10)
+
+
+# ======================================================================================
+#  Entry Point
+# ======================================================================================
+class FreeMemoApp:
+    def __init__(self, save_dir: str, filename_format: str):
+        self.root = tk.Tk()
+        self._setup_window(self.root)
+        model = MainModel(save_dir, filename_format)
+        vm = MainViewModel(model)
+        MainWindow(view_model=vm).pack()
+
+    @staticmethod
+    def _setup_window(root):
+        root.title("フリーメモ")
+        root.geometry("600x200")
+
+    def launch(self):
+        self.root.mainloop()
 
 
 def main():
-    # 平時にいじる部分は一か所にまとめる
-    save_dir = "i:\\Knowledge_BackUP\\Daily"
-    file_name = f"{datetime.date.today():%Y-%m-%d}.md"
-    file_path = os.path.join(save_dir, file_name)
-    timestamp_format = "%H:%M"
-
-    launch_app(file_path, timestamp_format, sync_period_ms=10)
+    # save_dir = "i:\\Knowledge_BackUP\\Daily"
+    save_dir = r"C:\Temp"
+    filename_format = "{:%Y-%m-%d}.md"
+    app = FreeMemoApp(save_dir, filename_format)
+    app.launch()
 
 
 if __name__ == '__main__':
