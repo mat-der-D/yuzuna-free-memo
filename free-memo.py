@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 import os
 import datetime
+from typing import Callable, Optional
 
 
 # ======================================================================================
@@ -29,6 +30,8 @@ class MainModel:
 class MainViewModel:
     def __init__(self, model: MainModel):
         self.model = model
+        self.height = tk.IntVar()
+        self.width = tk.IntVar()
         self.count = tk.StringVar(value="0")  # bind to Counter
         self.text = tk.StringVar(value="\n")  # bind to TextField
         self.text.trace_add("write", self.sync_text_count)
@@ -43,6 +46,35 @@ class MainViewModel:
 # ======================================================================================
 #  View
 # ======================================================================================
+def auto_resizable_widget(
+        width_map: Optional[Callable[[int], int]],
+        height_map: Optional[Callable[[int], int]],
+        *, vm: str = "vm", height: str = "height", width: str = "width"):
+    def _auto_resize(self):
+        if width_map is not None:
+            self["width"] = width_map(getattr(getattr(self, vm), width).get())
+        if height_map is not None:
+            self["height"] = height_map(getattr(getattr(self, vm), height).get())
+        self.after(100, self._auto_resize)
+
+    def create_init(cls):
+        original = cls.__init__
+
+        def __init__(self, *args, **kwargs):
+            original(self, *args, **kwargs)
+            self.after(100, self._auto_resize)
+
+        return __init__
+
+    def deco_impl(cls):
+        cls._auto_resize = _auto_resize
+        cls.__init__ = create_init(cls)
+        return cls
+
+    return deco_impl
+
+
+@auto_resizable_widget(lambda x: max(x // 20 - 5, 0), None)
 class SendButton(tk.Button):
     def __init__(self, master=None, *, view_model: MainViewModel, **kwargs):
         super().__init__(master, **kwargs)
@@ -57,6 +89,7 @@ class Counter(tk.Label):
         self["textvariable"] = self.vm.count
 
 
+@auto_resizable_widget(lambda x: int(x / 10.8), lambda x: x // 25)
 class TextField(ScrolledText):
     text_change_notification_period_ms = 10
 
@@ -64,7 +97,7 @@ class TextField(ScrolledText):
         super().__init__(master, **kwargs)
         self.vm = view_model
         self._text_cache = self.get(0.0, tk.END)
-        self.master.after(self.text_change_notification_period_ms, self.notify_text_change)
+        self.after(self.text_change_notification_period_ms, self.notify_text_change)
 
     def notify_text_change(self):
         text = self.get(0.0, tk.END)
@@ -79,20 +112,16 @@ class MainWindow(tk.Frame):
         super().__init__(master)
         self.vm = view_model
 
-        self.columnconfigure(index=0, weight=1)
-        self.columnconfigure(index=1, weight=10)
-
         TextField(
             self,
             view_model=self.vm,
-            height=7,
-            width=55,
             font=("Meiryo UI", 12),
-        ).grid(column=0, row=0, columnspan=2)
+        ).grid(column=0, row=0, columnspan=2, padx=5, pady=5)
 
         Counter(
             self,
             view_model=self.vm,
+            height=1,
             width=10,
             font=("Meiryo UI", 14),
         ).grid(column=0, row=1)
@@ -107,7 +136,13 @@ class MainWindow(tk.Frame):
             fg="#ffffff",
             bg="#1E88E5",
             relief=tk.FLAT,
-        ).grid(column=1, row=1)
+        ).grid(column=1, row=1, padx=5, pady=5)
+
+        self.master.bind("<Configure>", self.on_resize_frame)
+
+    def on_resize_frame(self, _):
+        self.vm.height.set(self.winfo_height())
+        self.vm.width.set(self.winfo_width())
 
 
 # ======================================================================================
